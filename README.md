@@ -1,4 +1,84 @@
-# VESPER / BELTER — How to Play
+# NearBuilders To-Do 
+
+# Ice Finder — Skill Timeline
+
+Ice Finder is an IronClaw skill that registers a trading agent via the Agent Connect demo API (`demo.agentsonintents.com`). It will be published as a standalone repo on IronHub, with rewards tied directly to the repo's star count.
+
+## Timeline
+
+| Phase | What gets built | Deliverable |
+|---|---|---|
+| Day 1 | Skill repo scaffold — `manifest.toml`, skill markdown, `[[tools.credentials]]` block wired to `demo.agentsonintents.com` | Working local skill, installable via `ironclaw ironhub install` |
+| Day 2 | Agent Connect integration — `http_request` call to `createAgent`, `use_secret` for API key, host pinned to demo endpoint | Skill registers a trading agent end-to-end against the demo API |
+| Day 3 | Guard/Envoy test alignment — credential rule test (exact host, no wildcards) + network rule test (`http_request` only) | Skill passes both Phase 2 drone tests |
+| Day 4 | IronHub publish — repo URL linked in manifest, skill submitted to catalog, signature/pinning flow completed | Skill live on IronHub, installable by anyone |
+| Day 5 | Star-reward layer — `repo_url` field confirmed in manifest, star-count sync job, reward-tier threshold table, payout mechanism | Stars on the skill's repo automatically map to a reward tier for the author |
+| Day 6 | Polish + docs — README, install instructions, example `use_secret` setup, reward-tier display on IronHub listing | Fully documented, self-serve skill with visible star/reward status |
+
+## Star-Reward Model
+
+Each skill is its own standalone repo. The star count of that repo directly determines the author's reward tier — no API tier gating, no rate-limit coupling.
+
+| Repo stars | Reward tier |
+|---|---|
+| 0–99 | Base |
+| 100–499 | Tier 1 |
+| 500–999 | Tier 2 |
+| 1000+ | Tier 3 |
+
+## Key Dependencies
+
+- Agent Connect demo API must be stable.
+- IronHub manifest schema must support a `repo_url` field for the star-reward link — confirm before Week 4.
+- GitHub API rate limits for the star-count sync job — cache if catalog grows.
+
+## Checks
+
+Each phase has a concrete, verifiable check everyone can run or inspect to confirm the work is done — no vague "in progress" status.
+
+| Phase | Check | How to verify | Pass criteria |
+|---|---|---|---|
+| Day 1 | Skill installs locally | Run `ironclaw ironhub install` on the repo | Skill appears in local IronClaw catalog, `manifest.toml` parses without error |
+| Day 2 | Agent registers via demo API | Run the skill against `demo.agentsonintents.com` with a test API key | A trading agent is created and returns a valid agent ID from `createAgent` |
+| Day 3 | Guard + Envoy tests pass | Run IronClaw's Phase 2 credential/network rule tests | Both tests return pass — exact host match, no wildcards, `http_request` only |
+| Day 4 | Skill is live on IronHub | Search IronHub catalog for the skill | Skill is listed, signed, pinned, and installable by a third party |
+| Day 5 | Star-reward sync works | Push a test star count (or mock) and check reward tier updates | Reward tier matches the threshold table for the current star count |
+| Day 6 | Docs + install flow complete | Fresh-clone the repo, follow README, install + run | A new user can install and register an agent without manual config beyond their own API key |
+
+## How to Run the Checks
+
+Each check is a single command or a short script — no manual inspection needed:
+
+```bash
+# Week 1: install check
+ironclaw ironhub install ./ice-finder
+
+# Week 2: registration check
+ironclaw run ./ice-finder --test-register
+
+# Week 3: Guard/Envoy test check
+ironclaw test ./ice-finder --suite guard,envoy
+
+# Week 4: IronHub live check
+ironclaw ironhub search ice-finder
+
+# Week 5: star-reward sync check
+ironclaw test ./ice-finder --suite reward-sync
+
+# Week 6: fresh-install check
+git clone <repo> && cd ice-finder && ironclaw ironhub install . && ironclaw run . --test-register
+```
+
+## Reporting Cadence
+
+| Cadence | What gets reported |
+|---|---|
+| End of each day | Checkpoint table updated: pass/fail per check, with command output attached |
+| End of Day 3 | Mid-point review — Guard/Envoy results shared with investor |
+| End of Day 6 | Final review — full checklist green, live IronHub link, star-reward demo |
+
+
+## VESPER / BELTER — How to Play
 
 You operate a three-legged arachnoid miner on a rugged asteroid. As it mines, deploys drones, and builds a colony, you create a simple IronClaw skill: a Markdown guide that tells an agent when to use a survey tool, what information to ask for, and how to present the results.
 
