@@ -1,8 +1,6 @@
+<img src="https://github.com/jilt/VespR/blob/master/b17bd633-d7be-451f-9325-9e6cf09b96a8.png?raw=true" alt="Vesper/Belter colony scene" width="600">
+
 # To-Do 
-
-
-# Example Skill creation
-
 
 We will lead students through the creation of an IronClaw skill that registers a trading agent via the Agent Connect demo API (`demo.agentsonintents.com`). The student work based on our example path will be published as a standalone repo on IronHub, with rewards tied directly to the repo's star count.
 
