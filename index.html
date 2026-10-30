@@ -1,0 +1,183 @@
+<!doctype html>
+<!--
+  VESPER / BELTER — educational HUD layer
+  ======================================================================
+  DESIGN PLAN (written before any code, per anthropic/frontend-design)
+
+  Subject   The arachnoid miner's own operating console. Space prospecting,
+            drone swarms, habitat engineering. Not a marketing dashboard.
+  Audience  Students learning to build, package, test, publish and safely
+            install an IronClaw extension by playing.
+  Thesis    Verification is life support.
+
+  COLOR — every token is lifted from a material already in the scene
+    void      #050608   renderer clear color            background
+    hull      #141a1d   robot body 0x283438, darkened   panel surfaces
+    regolith  #8a8378   asteroid rock 0x55595a, warmed  inert / unverified
+    signal    #8de6d0   robot emissive + drone mint     verified / live / focus
+    flare     #ffa33d   path color 2                    awaiting clearance, thin O2, jam
+    breach    #ff4254   path color 1                    forbidden / failed / mismatch
+
+  TYPE
+    B612 Mono  all data, labels, console, display. Designed by Airbus for
+               cockpit screens — the one honest reason to pick a mono here.
+    B612       proportional sibling for hints and help prose.
+    Scale      10.5 / 12 / 13.5 / 16 / 22 / 34 / 54  (≈1.25 modular)
+    Sentence case throughout. No tracked caps. Tabular numerals in readouts.
+
+  LAYOUT  left-aligned; numerals right-aligned
+    ┌────────────────────────────────────────────────────────────────┐
+    │ O2 63 %   manifest 5/5   hex integrity 67 %   robot: building ▂▂│ top  z20
+    ├──────────┬──────────────────────────────────────┬──────────────┤
+    │ Build    │                                      │ provenance   │
+    │ ☑ schema │        three.js canvas  z0           │ origin gate  │
+    │ ☐ tools  │  ┌──────────────────────────────┐    │  loop_run  ● │
+    │ ☐ refs   │  │ 9f3a7c1e4b2d8a6f0e5c3b9d7a1f │    │  product   ○ │
+    │ ☐ auth   │  │ 4e8c2b6d0a9f3e7c5b1d8a4f6e2c │z30 │  automation○ │
+    │ hint ▸   │  │ Installed      not pinned    │    │              │
+    ├──────────┴──────────────────────────────────────┴──────────────┤
+    │ $ ironclaw ironhub info belt-survey --kind skill               │ console z10
+    │ > _                                                            │
+    └────────────────────────────────────────────────────────────────┘
+    z50 toasts   z40 blocking modals   z30 digest widget   z20 top+rail
+    z10 console  z0 canvas
+
+  THE ONE BOLD MOVE
+    The digest IS the bar. The sha256 is rendered as a 16×4 grid of glyph
+    cells: regolith while unverified, filling with signal light cell by
+    cell when the player pins it, breach-red on a mismatch. The trust tier
+    sits beneath it in the largest type on the page. Nothing else glows.
+
+  PRINCIPLES
+    Structure encodes state, never decoration. Buttons name their exact
+    effect. Errors carry a stable code and what to do next. The only
+    non-user-triggered motion is atmosphere ignition at 100 % O2.
+
+  SELF-REVIEW (what read as a default and was changed)
+    - "near-black + one bright accent": background is the scene's own;
+      mint is the robot's emissive. Amber/red are states, not accents.
+    - mono-for-labels: justified by subject; B612 (sans) carries prose so
+      the mono isn't wallpaper.
+    - the brief's example toast "Package valid — hex assembly unlocked"
+      is the WORD — fragment tell → "Package valid. Hex assembly unlocked."
+    - the old scene HUD's "PHASE 01 · MINING" tracked caps + middle dots
+      are retired; only its sentence-case activity strings survive.
+    - no numbered 01/02/03 markers, no card grid, no backdrop blur, no
+      drop shadows, no hairline dividers; panels get one machined corner
+      and a single bezel bracket.
+    - critique pass (the one accessory removed): the scene's phase-timer
+      progress bar in the top bar. It measured animation time, not
+      learning; the activity sentence beside it already says what the
+      robot is doing.
+  ======================================================================
+--><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VESPER — Belter console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=B612+Mono:wght@400;700&family=B612:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head><body>
+
+<!-- legacy scene hud() targets, hidden -->
+<span id="phase"></span><span id="status"></span><span id="objective"></span>
+
+<header class="panel top" role="region" aria-label="Life support readouts">
+  <button class="iconbtn" id="railToggle" aria-label="Show checklist" aria-expanded="false" aria-controls="rail">☰</button>
+  <div class="read o2" id="o2Read"><span class="k">O2</span><span class="v" id="o2">0</span><span class="unit">%</span></div>
+  <div class="read"><span class="k">manifest</span><span class="v" id="manifestN">0/5</span></div>
+  <div class="read"><span class="k">hex integrity</span><span class="v" id="hexN">0</span><span class="unit">%</span></div>
+  <div class="panel digest" id="digest" data-tier="none" aria-live="polite" aria-label="Artifact digest and trust tier">
+    <button class="digest-toggle" id="digestToggle" aria-expanded="false" aria-controls="digestPanel">
+      <span class="dtier" id="tierName">No package</span>
+      <span class="dceiling" id="ceilingRead">—</span>
+    </button>
+    <div class="digest-panel" id="digestPanel" hidden>
+      <div class="dgrid" id="dgrid" aria-hidden="true"></div>
+      <span class="sr" id="dsr"></span>
+      <div class="tier"><span class="name" id="tierNameFull">No package</span><span class="st" id="tierStateFull">Mine a valid manifest to begin.</span></div>
+      <div class="dacts" id="dacts"></div>
+      <div class="dmeta">
+        <span class="k">package</span><span id="pkgName">—</span>
+        <span class="k">version</span><span id="pkgVersion">—</span>
+        <span class="k">provenance</span><span id="pkgProvenance">—</span>
+        <span class="k">pin</span><span id="pkgPin">—</span>
+        <span class="k">O2 ceiling</span><span id="pkgCeiling">—</span>
+        <span class="k">requirement</span><span id="pkgRequirement">—</span>
+      </div>
+      <div class="drow"><button class="iconbtn" id="copyHash" aria-label="Copy artifact hash">⧉</button><button class="act" id="digestClose">Close</button></div>
+    </div>
+  </div>
+  <button class="iconbtn" id="statusBtn" aria-label="Package status" aria-expanded="false" aria-controls="digest">⬡</button>
+  <div class="robot"><p id="detail"></p><div class="bar" aria-hidden="true"><span id="bar"></span></div><button class="iconbtn" id="musicBtn" aria-label="Music off. Turn on" aria-pressed="false">♩</button><button class="iconbtn" id="helpBtn" aria-label="How this teaches">?</button></div>
+</header>
+
+<aside class="panel rail" id="rail" aria-label="Phase checklist">
+  <h2 id="railTitle">Build a package<small id="railSub">Each core sample attaches one manifest field.</small></h2>
+  <div class="handover" id="handover" hidden role="status"></div>
+  <div class="samples" id="samples"><span>core samples</span><div class="rack" id="rack" aria-label="Core sample rack"></div><span id="sampleNote">waiting on the excavator</span></div>
+  <div class="fail" id="failPanel" hidden></div>
+  <div class="drones" id="droneRow" hidden></div>
+  <ul class="check" id="checklist"></ul>
+  <div class="task" id="task"></div>
+  <details class="hint" id="hint"><summary>Why this rule</summary><p id="hintBody"></p></details>
+</aside>
+
+<aside class="panel badges" aria-label="Package provenance and origin gates">
+  <div><h3>Provenance</h3><div class="kv" id="prov"><span>entry</span><span class="v">—</span><span>provenance</span><span class="v">—</span><span>version</span><span class="v">—</span><span>installed at</span><span class="v">—</span></div></div>
+  <div><h3>Origin gate matrix</h3><div class="gate" id="gate"></div></div>
+</aside>
+
+
+
+<section class="panel console" aria-label="IronHub console">
+  <div class="out" id="out" role="log" aria-live="polite"></div>
+  <form class="in" id="cliForm" autocomplete="off"><label for="cli">$</label><input id="cli" spellcheck="false" placeholder="ironclaw ironhub search <your claim>" aria-label="Console input"></form>
+</section>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="ignite" id="ignite" aria-hidden="true"></div>
+
+<div class="modal" id="overrideModal" role="dialog" aria-modal="true" aria-labelledby="ovTitle">
+  <div class="dlg"><h2 id="ovTitle">Human override required</h2>
+    <p><code id="ovName"></code> has provenance <code>New</code>. The agent cannot install community entries on its own, and approving in chat does not set the acknowledgement the gate requires.</p>
+    <p class="m">Installing from the CLI with <code>--acknowledge-unverified</code> records that an operator, not the model, accepted an unverified entry.</p>
+    <div class="row"><button class="act" id="ovCancel">Cancel</button><button class="act primary" id="ovAck">Acknowledge unverified and install</button></div>
+  </div>
+</div>
+
+<div class="modal" id="reviewModal" role="dialog" aria-modal="true" aria-labelledby="rvTitle">
+  <div class="dlg"><h2 id="rvTitle">Review before trusting</h2>
+    <p>Read the skill body. Each check names the section that is its evidence; a check unlocks once you have seen that section.</p>
+    <div class="scroll" id="rvScroll" tabindex="0"></div>
+    <ul class="flags" id="rvFlags"></ul>
+    <p class="m" id="rvAuthority"></p>
+    <div class="row"><button class="act" id="rvCancel">Keep as Installed</button><button class="act primary" id="rvPromote" disabled>Promote to Trusted</button></div>
+  </div>
+</div>
+
+<div class="modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="hpTitle">
+  <div class="dlg help"><h2 id="hpTitle">How to play</h2>
+    <div class="scroll guide" id="hpBody" tabindex="0" aria-busy="true">Loading the guide.</div>
+    <div class="row"><button class="act risky" id="resetBtn">Start over</button><button class="act primary" id="hpClose" autofocus>Back to the console</button></div>
+  </div>
+</div>
+
+
+
+<div class="modal" id="surveyModal" role="dialog" aria-modal="true" aria-labelledby="svTitle">
+  <div class="dlg survey"><h2 id="svTitle">Commissioning survey</h2>
+    <p class="m">A CAD-style plate of the colony as it stands now. Facts come from your verified run; the drawing is the live scene, so it reflects the current state of the rock. Exterior only — interior geometry is not simulated.</p>
+    <div class="svrow">
+      <fieldset class="svview"><legend>View</legend>
+        <label><input type="radio" name="svView" value="survey" checked> Survey</label>
+        <label><input type="radio" name="svView" value="current"> Current viewpoint</label>
+      </fieldset>
+      <span class="m" id="svStatus" aria-live="polite"></span>
+    </div>
+    <div class="svwrap"><img id="svImg" alt="Commissioning survey plate of the completed colony"></div>
+    <details class="hint"><summary>Annotations as text</summary><ul id="svLabels" class="svlabels"></ul></details>
+    <div class="row"><button class="act" id="svClose">Return to colony</button><button class="act" id="svRender">Re-render</button><button class="act primary" id="svExport">Export PNG</button></div>
+  </div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body></html>

@@ -1,0 +1,13 @@
+{
+  "name": "chart-the-stars",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-2.0",
+  "description": "VESPER / BELTER — low-poly asteroid colony that teaches IronClaw extension packaging, testing, publishing and safe install.",
+  "scripts": {
+    "start": "node serve.mjs",
+    "test": "node --test tests/store.test.js tests/survey.test.js",
+    "test:e2e": "node tests/e2e.mjs"
+  }
+}
